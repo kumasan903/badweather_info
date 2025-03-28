@@ -40,7 +40,7 @@ fn old(time: &str) -> bool {
 
 #[tokio::main]
 async fn main() {
-    let body = reqwest::get("https://metar.vatsim.net/rj,ro")
+    let body = reqwest::get("https://metar.vatsim.net/RJFK,RJSC,RJAH,RJOB,RJSN,RJDB,RJKI,RJFU,RJOM,RJOO,RJFO,RJSI,RJNT,RJFF,RJSA,RJCB,RJOS,RJDC,RJSK,RJTT,RJFT,RJGG,RJSM,RJAA,RJSS,RJOW,RJCH,RJAF,RJFS,RJSR,RJOA,RJFE,RJCO,RJCK,RJTF,RJCW,RJBD,RJFC,RJOY,RJFG,RJOI,RJSF,RJCN,RJKB,RJOT,RJBT,RJFR,RJNS,RJOR,RJTO,RJEB,RJKN,RJBE,RJOH,RJEC,RJOC,RJOK,RJFM,RJTY,RJNK,RJNW,RJCC,RJKA,RJSY,RJDT,RJBB,RJCM,RORK,RORY,ROIG,ROMD,ROKJ,RORS,ROMY,ROAH,ROYN")
         .await
         .unwrap()
         .text()
@@ -61,7 +61,10 @@ async fn main() {
         } else {
             "0"
         };
-        let gust = if metar[2].ends_with("KT") && metar[2] != "/////KT" && metar[2].chars().nth(5) == Some('G') {
+        let gust = if metar[2].ends_with("KT")
+            && metar[2] != "/////KT"
+            && metar[2].chars().nth(5) == Some('G')
+        {
             &metar[2][6..8]
         } else {
             "0"
