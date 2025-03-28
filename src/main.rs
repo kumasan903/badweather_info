@@ -51,14 +51,18 @@ async fn main() {
     for metar_raw in metars {
         let mut metar: Vec<&str> = metar_raw.split(' ').collect();
         if old(metar[1]) {
-            println!("old! {}", metar_raw);
             continue;
         }
         if metar[2] == "AUTO" {
             metar.remove(0);
         }
         let wind = if metar[2].ends_with("KT") && metar[2] != "/////KT" {
-            &metar[2][metar[2].len() - 4..metar[2].len() - 2]
+            &metar[2][3..5]
+        } else {
+            "0"
+        };
+        let gust = if metar[2].ends_with("KT") && metar[2] != "/////KT" && metar[2].chars().nth(5) == Some('G') {
+            &metar[2][6..8]
         } else {
             "0"
         };
@@ -72,10 +76,14 @@ async fn main() {
             "9999"
         };
         let wind: u8 = wind.parse().unwrap();
+        let gust: u8 = gust.parse().unwrap();
         let vis: u16 = vis.parse().unwrap();
-        if wind > 35
-            || vis < 1000
-            || metar_raw.contains("VV00")
+        if wind > 30
+            || gust > 45
+            || vis < 500
+            || metar_raw.contains("VV000")
+            || metar_raw.contains("VV001")
+            || metar_raw.contains("VV002")
             || metar_raw.contains("OVC000")
             || metar_raw.contains("OVC001")
             || metar_raw.contains("OVC002")
