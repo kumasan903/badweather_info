@@ -144,17 +144,27 @@ fn low_ceiling(airport_weather: &AirportWeather) -> bool {
         || matches!(airport_weather.vertical_visibility_ft, Some(x) if x <= 200)
 }
 
+fn bad_weather(airport_weather: &AirportWeather) -> bool {
+    if old(&airport_weather.time) {
+        return false;
+    }
+    if strong_wind(airport_weather) || low_visibility(airport_weather) {
+        return true;
+    }
+    if low_ceiling(airport_weather) {
+        return airport_weather.visibility_m < 8000
+            || airport_weather.overcast_ceiling_ft == Some(0);
+    }
+    false
+}
+
 #[tokio::main]
 async fn main() {
     let metars = get_metars().await.unwrap();
     let mut result = String::new();
     for metar_raw in metars {
         let airport_weather = parse_metar(metar_raw);
-        if !old(&airport_weather.time)
-            && (strong_wind(&airport_weather)
-                || low_visibility(&airport_weather)
-                || low_ceiling(&airport_weather))
-        {
+        if bad_weather(&airport_weather) {
             result = result + airport_weather.raw_metar.as_str() + "\n";
             println!("{:?}", airport_weather);
         }
