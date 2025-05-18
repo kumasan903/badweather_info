@@ -1,4 +1,4 @@
-use chrono::{Datelike, Duration, TimeZone, Utc};
+use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
 use std::collections::HashMap;
 use std::env;
 
@@ -7,6 +7,36 @@ struct MetarTime {
     date: u8,
     hour: u8,
     minute: u8,
+}
+
+impl MetarTime {
+    fn to_datetime(&self, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
+        let year = now.year();
+        let month = now.month();
+        if self.date as u32 > now.day() {
+            let prev_month = if month == 1 { 12 } else { month - 1 };
+            let prev_year = if month == 1 { year - 1 } else { year };
+            Utc.with_ymd_and_hms(
+                prev_year,
+                prev_month,
+                self.date as u32,
+                self.hour as u32,
+                self.minute as u32,
+                0,
+            )
+            .single()
+        } else {
+            Utc.with_ymd_and_hms(
+                year,
+                month,
+                self.date as u32,
+                self.hour as u32,
+                self.minute as u32,
+                0,
+            )
+            .single()
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -20,32 +50,21 @@ struct AirportWeather {
     raw_metar: String,
 }
 
-async fn send_webhook(str: &str) -> Result<reqwest::Response, reqwest::Error> {
+async fn send_webhook(message: &str) -> Result<reqwest::Response, reqwest::Error> {
     let mut request_body = HashMap::new();
-    request_body.insert("content", str);
+    request_body.insert("content", message);
     let webhook_url = env::var("WEBHOOK_URL").expect("Failed to read WEBHOOK_URL");
     let client = reqwest::Client::new();
     client.post(webhook_url).json(&request_body).send().await
 }
 
 fn old(time: &MetarTime) -> bool {
-    let dt = if time.date as u32 > Utc::now().day() {
-        return true;
+    let now = Utc::now();
+    if let Some(dt) = time.to_datetime(now) {
+        now - Duration::hours(2) > dt
     } else {
-        Utc.with_ymd_and_hms(
-            Utc::now().year(),
-            Utc::now().month(),
-            time.date as u32,
-            time.hour as u32,
-            time.minute as u32,
-            0,
-        )
-        .unwrap()
-    };
-    if Utc::now() - Duration::hours(2) > dt {
-        return true;
+        true
     }
-    false
 }
 
 async fn get_metars() -> Result<Vec<String>, reqwest::Error> {
@@ -56,6 +75,7 @@ async fn get_metars() -> Result<Vec<String>, reqwest::Error> {
     Ok(body.split('\n').map(|s| s.to_string()).collect())
 }
 
+// TODO: 関数分割する
 fn parse_metar(raw_metar: String) -> AirportWeather {
     let mut metar: Vec<&str> = raw_metar.split_whitespace().collect();
     let time = metar[1];
@@ -126,7 +146,7 @@ fn parse_metar(raw_metar: String) -> AirportWeather {
         visibility_m,
         overcast_ceiling_ft,
         vertical_visibility_ft,
-        raw_metar: raw_metar.to_string(),
+        raw_metar,
     }
 }
 
