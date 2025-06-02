@@ -76,7 +76,7 @@ async fn get_metars() -> Result<Vec<String>, reqwest::Error> {
     Ok(body.split('\n').map(|s| s.to_string()).collect())
 }
 
-fn parse_time(metar: &Vec<&str>) -> Result<MetarTime, ParseIntError> {
+fn parse_time(metar: &[&str]) -> Result<MetarTime, ParseIntError> {
     let time = metar[1];
     Ok(MetarTime {
         date: time[0..2].parse::<u8>()?,
@@ -85,18 +85,17 @@ fn parse_time(metar: &Vec<&str>) -> Result<MetarTime, ParseIntError> {
     })
 }
 
-// TODO: parse失敗したら0にしちゃって良さそう
-fn parse_wind_speed(metar: &Vec<&str>) -> Result<u8, ParseIntError> {
+fn parse_wind_speed(metar: &[&str]) -> Result<u8, ParseIntError> {
     let wind_str = metar[2];
     let wind_speed_kt: &str = if wind_str.ends_with("KT") && wind_str != "/////KT" {
         &wind_str[3..5]
     } else {
         "0"
     };
-    Ok(wind_speed_kt.parse::<u8>()?)
+    wind_speed_kt.parse::<u8>()
 }
 
-fn parse_wind_gust_speed(metar: &Vec<&str>) -> Option<u8> {
+fn parse_wind_gust_speed(metar: &[&str]) -> Option<u8> {
     let wind_str = metar[2];
     let wind_gust_speed_kt: Option<&str> =
     if wind_str.ends_with("KT") && wind_str != "/////KT" && wind_str.chars().nth(5) == Some('G')
@@ -108,7 +107,7 @@ fn parse_wind_gust_speed(metar: &Vec<&str>) -> Option<u8> {
     wind_gust_speed_kt.and_then(|s| s.parse::<u8>().ok())
 }
 
-fn parse_visibility(metar: &Vec<&str>) -> Result<u16, ParseIntError> {
+fn parse_visibility(metar: &[&str]) -> Result<u16, ParseIntError> {
     let vis_str = metar[3];
     let visibility_m = if vis_str.len() == 4
         && vis_str != "////"
@@ -119,10 +118,10 @@ fn parse_visibility(metar: &Vec<&str>) -> Result<u16, ParseIntError> {
     } else {
         "9999"
     };
-    Ok(visibility_m.parse::<u16>()?)
+    visibility_m.parse::<u16>()
 }
 
-fn parse_ceiling(raw_metar: &String) -> Option<u16> {
+fn parse_ceiling(raw_metar: &str) -> Option<u16> {
     if raw_metar.contains("OVC000") {
         Some(0)
     } else if raw_metar.contains("OVC001") {
@@ -136,7 +135,7 @@ fn parse_ceiling(raw_metar: &String) -> Option<u16> {
     }
 }
 
-fn parse_vertical_visibility(raw_metar: &String) -> Option<u16> {
+fn parse_vertical_visibility(raw_metar: &str) -> Option<u16> {
     if raw_metar.contains("VV000") {
         Some(0)
     } else if raw_metar.contains("VV001") {
