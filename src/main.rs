@@ -1,6 +1,7 @@
 use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
 use std::collections::HashMap;
 use std::env;
+use std::num::ParseIntError;
 
 #[derive(Debug)]
 struct MetarTime {
@@ -75,36 +76,40 @@ async fn get_metars() -> Result<Vec<String>, reqwest::Error> {
     Ok(body.split('\n').map(|s| s.to_string()).collect())
 }
 
-// TODO: 関数分割する
-fn parse_metar(raw_metar: String) -> AirportWeather {
-    let mut metar: Vec<&str> = raw_metar.split_whitespace().collect();
+fn parse_time(metar: &Vec<&str>) -> Result<MetarTime, ParseIntError> {
     let time = metar[1];
-    let time = MetarTime {
-        date: time[0..2].parse::<u8>().unwrap(),
-        hour: time[2..4].parse::<u8>().unwrap(),
-        minute: time[4..6].parse::<u8>().unwrap(),
-    };
-    if metar[2] == "AUTO" {
-        metar.remove(2);
-    }
+    Ok(MetarTime {
+        date: time[0..2].parse::<u8>()?,
+        hour: time[2..4].parse::<u8>()?,
+        minute: time[4..6].parse::<u8>()?,
+    })
+}
+
+// TODO: parse失敗したら0にしちゃって良さそう
+fn parse_wind_speed(metar: &Vec<&str>) -> Result<u8, ParseIntError> {
     let wind_str = metar[2];
-    // Wind Direction Variable
-    if metar[3].len() == 7 {
-        metar.remove(3);
-    }
-    let vis_str = metar[3];
     let wind_speed_kt: &str = if wind_str.ends_with("KT") && wind_str != "/////KT" {
         &wind_str[3..5]
     } else {
         "0"
     };
+    Ok(wind_speed_kt.parse::<u8>()?)
+}
+
+fn parse_wind_gust_speed(metar: &Vec<&str>) -> Option<u8> {
+    let wind_str = metar[2];
     let wind_gust_speed_kt: Option<&str> =
-        if wind_str.ends_with("KT") && wind_str != "////KT" && wind_str.chars().nth(5) == Some('G')
-        {
-            Some(&wind_str[6..8])
-        } else {
-            None
-        };
+    if wind_str.ends_with("KT") && wind_str != "/////KT" && wind_str.chars().nth(5) == Some('G')
+    {
+        Some(&wind_str[6..8])
+    } else {
+        None
+    };
+    wind_gust_speed_kt.and_then(|s| s.parse::<u8>().ok())
+}
+
+fn parse_visibility(metar: &Vec<&str>) -> Result<u16, ParseIntError> {
+    let vis_str = metar[3];
     let visibility_m = if vis_str.len() == 4
         && vis_str != "////"
         && !vis_str.ends_with("SM")
@@ -114,10 +119,11 @@ fn parse_metar(raw_metar: String) -> AirportWeather {
     } else {
         "9999"
     };
-    let wind_speed_kt: u8 = wind_speed_kt.parse().unwrap();
-    let wind_gust_speed_kt: Option<u8> = wind_gust_speed_kt.and_then(|s| s.parse::<u8>().ok());
-    let visibility_m: u16 = visibility_m.parse().unwrap();
-    let overcast_ceiling_ft: Option<u16> = if raw_metar.contains("OVC000") {
+    Ok(visibility_m.parse::<u16>()?)
+}
+
+fn parse_ceiling(raw_metar: &String) -> Option<u16> {
+    if raw_metar.contains("OVC000") {
         Some(0)
     } else if raw_metar.contains("OVC001") {
         Some(100)
@@ -127,8 +133,11 @@ fn parse_metar(raw_metar: String) -> AirportWeather {
         Some(300)
     } else {
         None
-    };
-    let vertical_visibility_ft: Option<u16> = if raw_metar.contains("VV000") {
+    }
+}
+
+fn parse_vertical_visibility(raw_metar: &String) -> Option<u16> {
+    if raw_metar.contains("VV000") {
         Some(0)
     } else if raw_metar.contains("VV001") {
         Some(100)
@@ -138,14 +147,25 @@ fn parse_metar(raw_metar: String) -> AirportWeather {
         Some(300)
     } else {
         None
-    };
+    }
+}
+
+fn parse_metar(raw_metar: String) -> AirportWeather {
+    let mut metar: Vec<&str> = raw_metar.split_whitespace().collect();
+    if metar[2] == "AUTO" {
+        metar.remove(2);
+    }
+    // Wind Direction Variable
+    if metar[3].len() == 7 {
+        metar.remove(3);
+    }
     AirportWeather {
-        time,
-        wind_speed_kt,
-        wind_gust_speed_kt,
-        visibility_m,
-        overcast_ceiling_ft,
-        vertical_visibility_ft,
+        time : parse_time(&metar).unwrap(),
+        wind_speed_kt : parse_wind_speed(&metar).unwrap_or(0),
+        wind_gust_speed_kt : parse_wind_gust_speed(&metar),
+        visibility_m : parse_visibility(&metar).unwrap_or(9999),
+        overcast_ceiling_ft : parse_ceiling(&raw_metar),
+        vertical_visibility_ft : parse_vertical_visibility(&raw_metar),
         raw_metar,
     }
 }
