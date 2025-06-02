@@ -1,4 +1,4 @@
-use chrono::{DateTime, Datelike, Duration, TimeZone, Utc, Timelike};
+use chrono::{DateTime, Datelike, Duration, TimeZone, Timelike, Utc};
 use std::collections::HashMap;
 use std::env;
 use std::num::ParseIntError;
@@ -105,8 +105,9 @@ fn parse_wind_speed(metar: &[&str]) -> Result<u8, ParseIntError> {
 
 fn parse_wind_gust_speed(metar: &[&str]) -> Option<u8> {
     let wind_str = metar[2];
-    let wind_gust_speed_kt: Option<&str> =
-    if wind_str.ends_with("KT") && wind_str != "/////KT" && wind_str.chars().nth(5) == Some('G')
+    let wind_gust_speed_kt: Option<&str> = if wind_str.ends_with("KT")
+        && wind_str != "/////KT"
+        && wind_str.chars().nth(5) == Some('G')
     {
         Some(&wind_str[6..8])
     } else {
@@ -167,12 +168,12 @@ fn parse_metar(raw_metar: String) -> AirportWeather {
         metar.remove(3);
     }
     AirportWeather {
-        time : parse_time(&metar).unwrap_or(MetarTime::from(Utc::now())),
-        wind_speed_kt : parse_wind_speed(&metar).unwrap_or(0),
-        wind_gust_speed_kt : parse_wind_gust_speed(&metar),
-        visibility_m : parse_visibility(&metar).unwrap_or(9999),
-        overcast_ceiling_ft : parse_ceiling(&raw_metar),
-        vertical_visibility_ft : parse_vertical_visibility(&raw_metar),
+        time: parse_time(&metar).unwrap_or(MetarTime::from(Utc::now())),
+        wind_speed_kt: parse_wind_speed(&metar).unwrap_or(0),
+        wind_gust_speed_kt: parse_wind_gust_speed(&metar),
+        visibility_m: parse_visibility(&metar).unwrap_or(9999),
+        overcast_ceiling_ft: parse_ceiling(&raw_metar),
+        vertical_visibility_ft: parse_vertical_visibility(&raw_metar),
         raw_metar,
     }
 }
@@ -208,8 +209,16 @@ fn bad_weather(airport_weather: &AirportWeather) -> bool {
 #[tokio::main]
 async fn main() {
     let metars = get_metars().await.expect("Failed to get METAR");
-    let bad_metars: Vec<AirportWeather> = metars.into_iter().map(parse_metar).filter(bad_weather).collect();
-    let result = bad_metars.iter().map(|w| w.raw_metar.as_str()).collect::<Vec<_>>().join("\n");
+    let bad_metars: Vec<AirportWeather> = metars
+        .into_iter()
+        .map(parse_metar)
+        .filter(bad_weather)
+        .collect();
+    let result = bad_metars
+        .iter()
+        .map(|w| w.raw_metar.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
     if !result.is_empty() {
         send_webhook(&result).await.expect("Failed to send webhook");
     }
