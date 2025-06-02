@@ -1,4 +1,4 @@
-use chrono::{DateTime, Datelike, Duration, TimeZone, Utc};
+use chrono::{DateTime, Datelike, Duration, TimeZone, Utc, Timelike};
 use std::collections::HashMap;
 use std::env;
 use std::num::ParseIntError;
@@ -36,6 +36,14 @@ impl MetarTime {
                 0,
             )
             .single()
+        }
+    }
+
+    fn from(dt: DateTime<Utc>) -> Self {
+        MetarTime {
+            date: dt.day() as u8,
+            hour: dt.hour() as u8,
+            minute: dt.minute() as u8,
         }
     }
 }
@@ -159,7 +167,7 @@ fn parse_metar(raw_metar: String) -> AirportWeather {
         metar.remove(3);
     }
     AirportWeather {
-        time : parse_time(&metar).unwrap(),
+        time : parse_time(&metar).unwrap_or(MetarTime::from(Utc::now())),
         wind_speed_kt : parse_wind_speed(&metar).unwrap_or(0),
         wind_gust_speed_kt : parse_wind_gust_speed(&metar),
         visibility_m : parse_visibility(&metar).unwrap_or(9999),
@@ -199,7 +207,7 @@ fn bad_weather(airport_weather: &AirportWeather) -> bool {
 
 #[tokio::main]
 async fn main() {
-    let metars = get_metars().await.unwrap();
+    let metars = get_metars().await.expect("Failed to get METAR");
     let mut result = String::new();
     for metar_raw in metars {
         let airport_weather = parse_metar(metar_raw);
@@ -208,6 +216,6 @@ async fn main() {
             println!("{:?}", airport_weather);
         }
     }
-    send_webhook(result.as_str()).await.unwrap();
+    send_webhook(result.as_str()).await.expect("Failed to send webhook");
     println!("{}", result);
 }
