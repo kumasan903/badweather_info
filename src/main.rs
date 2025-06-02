@@ -208,14 +208,10 @@ fn bad_weather(airport_weather: &AirportWeather) -> bool {
 #[tokio::main]
 async fn main() {
     let metars = get_metars().await.expect("Failed to get METAR");
-    let mut result = String::new();
-    for metar_raw in metars {
-        let airport_weather = parse_metar(metar_raw);
-        if bad_weather(&airport_weather) {
-            result = result + airport_weather.raw_metar.as_str() + "\n";
-            println!("{:?}", airport_weather);
-        }
+    let bad_metars: Vec<AirportWeather> = metars.into_iter().map(parse_metar).filter(bad_weather).collect();
+    let result = bad_metars.iter().map(|w| w.raw_metar.as_str()).collect::<Vec<_>>().join("\n");
+    if !result.is_empty() {
+        send_webhook(&result).await.expect("Failed to send webhook");
     }
-    send_webhook(result.as_str()).await.expect("Failed to send webhook");
     println!("{}", result);
 }
