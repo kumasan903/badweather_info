@@ -183,10 +183,12 @@ fn strong_wind(airport_weather: &AirportWeather) -> bool {
         || matches!(airport_weather.wind_gust_speed_kt, Some(x) if x > 45)
 }
 
+#[allow(dead_code)]
 fn low_visibility(airport_weather: &AirportWeather) -> bool {
     airport_weather.visibility_m < 500
 }
 
+#[allow(dead_code)]
 fn low_ceiling(airport_weather: &AirportWeather) -> bool {
     matches!(airport_weather.overcast_ceiling_ft, Some(x) if x <= 200)
         || matches!(airport_weather.vertical_visibility_ft, Some(x) if x <= 200)
@@ -196,12 +198,8 @@ fn bad_weather(airport_weather: &AirportWeather) -> bool {
     if old(&airport_weather.time) {
         return false;
     }
-    if strong_wind(airport_weather) || low_visibility(airport_weather) {
+    if strong_wind(airport_weather) {
         return true;
-    }
-    if low_ceiling(airport_weather) {
-        return airport_weather.visibility_m < 8000
-            || airport_weather.overcast_ceiling_ft == Some(0);
     }
     false
 }
